@@ -1,3 +1,7 @@
+#ifndef _PROTOCOLS_H_
+#define _PROTOCOLS_H_
+
+
 #include <unistd.h>
 #include <stdint.h>
 
@@ -57,3 +61,5 @@ struct icmphdr
     } frag;                        /* path mtu discovery */
   } un;
 };
+
+#endif

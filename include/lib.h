@@ -6,8 +6,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* ether_header */
+#include <arpa/inet.h>
+#include <stdbool.h>
+
 #define MAX_PACKET_LEN 1600
 #define ROUTER_NUM_INTERFACES 3
+
+#define ETHERTYPE_IP 0x0800
+#define ETHERTYPE_ARP 0x0806
+
+#define MAC_SIZE 6
+
+#define REQUEST_OP 1
+#define REPLY_OP 2
+
+#define ICMP_ECHO 0
+#define ICMP_DEST_UNREACH 3
+#define ICMP_TIME_EXCEEDED 11
+
+#define ARP_CAPACITY_DEFAULT 100
 
 
 /*

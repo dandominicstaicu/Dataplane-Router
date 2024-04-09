@@ -1,2 +1,13 @@
 .vscode
-
+router
+router_0_err
+router_1_err
+router_0_out
+router_1_out
+router.o
+router0
+router1
+*.o
+shh
+__pycache__
+archive.zip
