@@ -14,6 +14,6 @@ void handle_ipv4(void *recv_packet, int recv_len, int interface);
 
 bool bad_checksum(struct iphdr *ip_hdr);
 
-void handle_ttl(struct iphdr *ip_hdr, char *packet, int interface);
+char *alloc_packet(void *recv_packet, int recv_len);
 
 #endif

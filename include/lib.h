@@ -26,7 +26,14 @@
 #define ICMP_TIME_EXCEEDED 11
 
 #define ARP_CAPACITY_DEFAULT 100
+#define RTABLE_CAPACITY 800000
 
+#define TTL 64
+
+#define ETH_LEN sizeof(struct ether_header)
+#define IPHDR_LEN sizeof(struct iphdr)
+#define ICMPHDR_LEN sizeof(struct icmphdr)
+#define ARP_LEN sizeof(struct arp_header)
 
 /*
  * @brief Sends a packet on a specific interface.

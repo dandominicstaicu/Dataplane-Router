@@ -7,16 +7,6 @@ extern int arp_table_size;
 
 extern queue packet_q;
 
-struct arp_table_entry *get_arp_entry(uint32_t ip)
-{
-	// Iterate through the ARP table and search for the IP
-	for (int i = 0; i < arp_table_size; ++i)
-		if (arp_table[i].ip == ip)
-			return &arp_table[i];
-
-	return NULL;
-}
-
 void send_arp_broadcast(void *old_pkt, int interface)
 {
 	// create ARP request packet
@@ -41,13 +31,13 @@ void send_arp_broadcast(void *old_pkt, int interface)
 	memcpy(arp_hdr.sha, eth_hdr->ether_shost, sizeof(uint8_t) * MAC_SIZE);
 	arp_hdr.spa = inet_addr(get_interface_ip(interface));
 	memset(arp_hdr.tha, 0, sizeof(uint8_t) * MAC_SIZE);
-	struct iphdr *ip_hdr = (struct iphdr *)(old_pkt + sizeof(struct ether_header));
+	struct iphdr *ip_hdr = (struct iphdr *)(old_pkt + ETH_LEN);
 	struct route_table_entry *entry_rtable = lpm(ip_hdr->daddr);
 	arp_hdr.tpa = entry_rtable->next_hop;
 
-	memcpy(new_arp_packet + sizeof(struct ether_header), &arp_hdr, sizeof(struct arp_header));
+	memcpy(new_arp_packet + ETH_LEN, &arp_hdr, ARP_LEN);
 
-	int len = sizeof(struct ether_header) + sizeof(struct arp_header);
+	int len = ETH_LEN + ARP_LEN;
 
 	// send ARP packet
 	send_to_link(entry_rtable->interface, new_arp_packet, len);
@@ -55,7 +45,7 @@ void send_arp_broadcast(void *old_pkt, int interface)
 
 void handle_arp(void *old_pkt, int interface)
 {
-	struct arp_header *old_arp_hdr = (struct arp_header *)(old_pkt + sizeof(struct ether_header));
+	struct arp_header *old_arp_hdr = (struct arp_header *)(old_pkt + ETH_LEN);
 
 	// reply packet
 	if (old_arp_hdr->op == htons(REPLY_OP)) {
@@ -90,11 +80,11 @@ void arp_request_handler(struct arp_header *old_arp_hdr, void *old_packet, int i
 	memcpy(arp_hdr.tha, old_arp_hdr->sha, sizeof(uint8_t) * MAC_SIZE);
 	arp_hdr.tpa = old_arp_hdr->spa;
 
-	memcpy(reply_arp_packet, eth_hdr, sizeof(struct ether_header));
-	memcpy(reply_arp_packet + sizeof(struct ether_header), &arp_hdr, sizeof(struct arp_header));
+	memcpy(reply_arp_packet, eth_hdr, ETH_LEN);
+	memcpy(reply_arp_packet + ETH_LEN, &arp_hdr, ARP_LEN);
 
 	// send packet
-	int len = sizeof(struct ether_header) + sizeof(struct arp_header);
+	int len = ETH_LEN + ARP_LEN;
 	send_to_link(interface, reply_arp_packet, len);
 	return;
 }
@@ -102,7 +92,7 @@ void arp_request_handler(struct arp_header *old_arp_hdr, void *old_packet, int i
 void update_arp_table(void *packet)
 {
 	// update local arp table
-	struct arp_header *arp_hdr = (struct arp_header *)(packet + sizeof(struct ether_header));
+	struct arp_header *arp_hdr = (struct arp_header *)(packet + ETH_LEN);
 	arp_table[arp_table_size].ip = arp_hdr->spa;
 	memcpy(arp_table[arp_table_size].mac, arp_hdr->sha, sizeof(uint8_t) * MAC_SIZE);
 
@@ -123,28 +113,30 @@ void arp_reply_handler(void *incoming_packet) {
     while (!queue_empty(packet_q)) {
         char *current_packet = (char *)queue_deq(packet_q);
 
-        // Extract the Ethernet and IP headers from the packet
-        struct ether_header *eth_hdr = (struct ether_header *)current_packet;
-        struct iphdr *ip_header = (struct iphdr *)(current_packet + sizeof(struct ether_header));
+        // Extract IP header from the packet
+        struct iphdr *ip_header = (struct iphdr *)(current_packet + ETH_LEN);
 
         // Find the routing table entry using the destination IP address
         struct route_table_entry *route_entry = lpm(ip_header->daddr);
 
         // Recalculate the IP header checksum
         ip_header->check = 0; // Reset checksum to 0 before calculation
-        uint16_t check_sum = checksum((uint16_t *)ip_header, sizeof(struct iphdr));
+        uint16_t check_sum = checksum((uint16_t *)ip_header, IPHDR_LEN);
 		ip_header->check = htons(check_sum);
 
         // Attempt to find a corresponding ARP entry
         struct arp_table_entry *arp_entry = get_arp_entry(route_entry->next_hop);
 
 		if (arp_entry) {
+			// Calculate the total length of the packet
+            int total_length = ETH_LEN + IPHDR_LEN + ICMPHDR_LEN;
+	        
+			// Extract the Ethernet header
+			struct ether_header *eth_hdr = (struct ether_header *)current_packet;
+
             // Update the destination MAC address in the Ethernet header
             memcpy(eth_hdr->ether_dhost, arp_entry->mac, MAC_SIZE * sizeof(uint8_t));
 
-            // Calculate the total length of the packet
-            int total_length = sizeof(struct ether_header) + sizeof(struct iphdr) + sizeof(struct icmphdr);
-            
             // Send the packet over the specified interface
             send_to_link(route_entry->interface, current_packet, total_length);
 
@@ -153,5 +145,20 @@ void arp_reply_handler(void *incoming_packet) {
             break; // Exit after processing the first matching packet
         }
     }
+}
+
+struct arp_table_entry *get_arp_entry(uint32_t ip)
+{
+	// Search for the IP in the ARP table 
+	uint16_t index = 0;
+	while (index < arp_table_size) {
+		if (arp_table[index].ip == ip)
+			return &arp_table[index];
+
+		++index;
+	}
+	
+
+	return NULL;
 }
 

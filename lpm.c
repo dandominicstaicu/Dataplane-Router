@@ -1,7 +1,7 @@
 #include "lpm.h"
 
 /* Routing table */
-extern struct route_table_entry rtable[800000];
+extern struct route_table_entry rtable[RTABLE_CAPACITY];
 extern int rtable_len;
 
 
